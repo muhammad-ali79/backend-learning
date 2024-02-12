@@ -20,4 +20,18 @@ app.use(express.static("public"));
 // here we are adding the cookieparser middleware that handle the cookies related stuff
 app.use(cookieParser());
 
+// importing routes
+import userRouter from "./routes/user.routes.js";
+
+// routes decleartion
+// here we cannot use the app.get because now we are importing the routes and everyting is seprate so we use app.use
+// app.use("/users", userRouter);
+
+// standrad practice
+app.use("/api/v1/users", userRouter);
+
+// what will be the url look like
+// https://localhost:4000/api/v1/users/register
+// https://localhost:4000/api/v1/users/login  after /user control will pass to the userRouter here we will specfiy the further url and the controller to be post (execute,run)
+
 export default app;
