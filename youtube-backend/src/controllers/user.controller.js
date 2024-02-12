@@ -18,25 +18,34 @@ const registerUser = asyncHandler(async (req, res) => {
   // check for user creation
   // return res
 
+  // console.log("REQUEST BODY: ", req.body);
+
   // extracting the data form the req
   const { userName, email, fullName, password } = req.body;
 
   // VAIDATION: if any of the field is empy then throw new apiError
   if (
-    [userName, email, fullName, password].some((field) => field.trim() === "")
+    [userName, email, fullName, password].some((field) => {
+      console.log(userName, email, fullName, password);
+      field.trim() === "";
+    })
   )
     throw new ApiError(400, "All fields are required");
 
   // if user is already exist
   // User schema wil serach in the database that if usreName or email already exit
-  const existedUser = User.findOne({ $or: [{ userName }, { email }] });
+  const existedUser = await User.findOne({ $or: [{ userName }, { email }] });
   if (existedUser)
     throw new ApiError(409, "User with email and password already exist");
 
   // gettting the image path
   // multer already upload the file from the router in the local server so here we are just taking the filepath
+
+  // console.log("request.Files", req.files);
+  // console.log("complete", req.files.coverImage);
+
   const avatarLocalPath = req.files?.avatar[0]?.path;
-  const coverImageLocalPath = req.files?.coverImage[0]?.path;
+  const coverImageLocalPath = req.files?.coverImage?.[0]?.path;
 
   if (!avatarLocalPath) throw new ApiError(400, "Avatar is required");
 
@@ -53,7 +62,7 @@ const registerUser = asyncHandler(async (req, res) => {
     password,
     userName: userName.toLowerCase(),
     avatar: avatar.url,
-    coverImage: coverImage?.url,
+    coverImage: coverImage?.url || "",
   });
 
   // check for user Creation
