@@ -6,18 +6,18 @@ import ApiResponse from "../utils/apiResponse.js";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
-    const user = User.findById(userId);
+    const user = await User.findById(userId);
     const accessToken = user.generateAccessToken();
-    const RefreshToken = user.generateRefreshToken();
+    const refreshToken = user.generateRefreshToken();
 
     //  creating and settting the refreshTokens
-    user.RefreshToken = RefreshToken;
+    user.refreshToken = refreshToken;
 
     // saving the user
     // here we set validateBeforeSave to false because if we dont then we have to give every propery that is in the schema
     await user.save({ validateBeforeSave: false });
 
-    return { accessToken, RefreshToken };
+    return { accessToken, refreshToken };
   } catch (error) {
     throw new ApiError(
       500,
@@ -121,24 +121,29 @@ const loginUser = asyncHandler(async (req, res) => {
   if (!userName && !email)
     throw new ApiError(400, "usreName or password is required");
 
+  // if (!(userName || email))
+  //   throw new ApiError(400, "userName or email is required");
+
   // 3.
   // find the user if any of the given propery matched
-  const user = User.findOne({ $or: [{ userName }, { email }] });
+  const user = await User.findOne({
+    $or: [{ userName }, { email }],
+  });
+
   if (!user) throw new ApiError(404, "user does not exist. please register");
-  console.log(user);
 
   // 4.
-  const isPasswordValid = await user.isPasswordCorrected(password);
+  const isPasswordValid = await user.isPasswordCorrect(password);
   if (!isPasswordValid) throw new ApiError(401, "Invalid user credentials");
 
   // 5.
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
     user._id
   );
+
   // user after generating the tokens because   user before doest not  has the field of refreshToken so we will remove some fields to make a response
   const loggedInUser = await User.findById(user._id).select(
-    "-password",
-    "-refreshToken"
+    "-password -refreshToken"
   );
 
   // 6.

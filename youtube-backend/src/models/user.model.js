@@ -74,7 +74,8 @@ userSchema.pre("save", async function (next) {
 });
 
 // if user given password is same as password store in db then return true
-userSchema.methods.isPasswordCorrected = async function (password) {
+userSchema.methods.isPasswordCorrect = async function (password) {
+  console.log(password, this.password);
   return await bcrypt.compare(password, this.password);
 };
 
