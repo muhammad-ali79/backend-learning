@@ -58,7 +58,7 @@ const userSchema = new Schema(
   { timestamps: true }
 );
 
-// for saving data if password is modified then encrypt password
+// before saving data if password is modified then encrypt password
 userSchema.pre("save", async function (next) {
   // next() essentially acts as a way to pass control to the next function in the middleware chain or to continue with the operation being performed. If you don't call next(), the middleware chain will be halted, and the save operation (or any subsequent middleware) won't proceed.
 
@@ -75,7 +75,6 @@ userSchema.pre("save", async function (next) {
 
 // if user given password is same as password store in db then return true
 userSchema.methods.isPasswordCorrect = async function (password) {
-  console.log(password, this.password);
   return await bcrypt.compare(password, this.password);
 };
 
