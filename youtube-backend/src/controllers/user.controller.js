@@ -329,6 +329,80 @@ const updateCoverImage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "coverImage image updated successfully"));
 });
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { userName } = req.params; // from url
+
+  if (!userName?.trim()) throw new ApiError(400, "userName is missing");
+
+  const channel = User.aggregate([
+    {
+      $match: {
+        // match will give one doc who will match the username
+        userName: userName?.toLowerCase(),
+      },
+    },
+
+    // will make subcribers property of documents
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subcribers",
+      },
+    },
+
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subcribedTo",
+      },
+    },
+
+    {
+      $addFields: {
+        subscribersCount: {
+          $size: "$subcribers",
+        },
+
+        channelsSubcribedToCount: {
+          $size: "$subcribedTo",
+        },
+
+        isSubscribed: {
+          $cond: {
+            if: { $in: [req.user._id, "$subcribers.subcriber"] },
+          },
+        },
+      },
+    },
+
+    // these properties will only go not all from schema in the array
+    {
+      $project: {
+        fullName: 1,
+        username: 1,
+        subscribersCount: 1,
+        channelsSubscribedToCount: 1,
+        isSubscribed: 1,
+        avatar: 1,
+        coverImage: 1,
+        email: 1,
+      },
+    },
+  ]);
+
+  if (!channel?.length) throw new ApiError(404, "channel does not exists");
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, channel[0], "User channel fetched successfully")
+    );
+});
+
 export {
   registerUser,
   loginUser,
@@ -340,3 +414,5 @@ export {
   updateAvatar,
   updateCoverImage,
 };
+
+// lookup: document to stick (to join two docs)
