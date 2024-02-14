@@ -176,9 +176,15 @@ const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
 
-    // data to update
+    // // data to update
+    // {
+    //   $set: { refreshToken: undefined },
+    // },
+
     {
-      $set: { refreshToken: undefined },
+      $unset: {
+        refreshToken: 1,
+      },
     },
 
     //  This option tells Mongoose to return the modified document rather than the original one.  So user will hold the updated document
@@ -348,7 +354,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       $lookup: {
         from: "subscriptions",
         localField: "_id",
-        foreignField: "channel", // Q:how id will match even if the channel property is a complete user
+        foreignField: "channel",
         as: "subcribers",
       },
     },
