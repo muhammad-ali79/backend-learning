@@ -342,12 +342,13 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       },
     },
 
-    // will make subcribers property of documents
+    // will make subcribers property of documents if localField match with foreignField on the document who come after matching
+    // this stage will get all the documents of the subcribers
     {
       $lookup: {
         from: "subscriptions",
         localField: "_id",
-        foreignField: "channel",
+        foreignField: "channel", // Q:how id will match even if the channel property is a complete user
         as: "subcribers",
       },
     },
@@ -373,17 +374,22 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 
         isSubscribed: {
           $cond: {
-            if: { $in: [req.user._id, "$subcribers.subcriber"] },
+            // if id in subcribers.subcriber will match the id in req.user then return true
+            if: {
+              $in: [req.user._id, "$subcribers.subcriber"],
+            },
+            then: true,
+            else: false,
           },
         },
       },
     },
 
-    // these properties will only go not all from schema in the array
+    // only these fields will remain in the document
     {
       $project: {
         fullName: 1,
-        username: 1,
+        userName: 1,
         subscribersCount: 1,
         channelsSubscribedToCount: 1,
         isSubscribed: 1,
@@ -403,6 +409,63 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     );
 });
 
+const getWatchHistory = asyncHandler(async (req, res) => {
+  const user = User.aggregate([
+    {
+      $match: {
+        // here we cannot just write req.user.id because aggregate doest not use mongoose its code go directly in to the mongodb and mongodb required ObjectId(_id) so that i generate using mongoose
+        _id: new mongoose.Type.ObjectId(req.user?._id),
+      },
+    },
+
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id", // video id
+        as: "watchHistory",
+      },
+      pipeline: [
+        {
+          $lookup: {
+            from: "users",
+            localField: "owner",
+            foreignField: "_id",
+            as: "owner",
+
+            pipeline: [
+              {
+                $project: {
+                  userName: 1,
+                  fullName: 1,
+                  avatar: 1,
+                },
+              },
+            ],
+          },
+        },
+        {
+          $addFields: {
+            owner: {
+              $first: "$owner",
+            },
+          },
+        },
+      ],
+    },
+  ]);
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        201,
+        user[0].watchHistory,
+        "watch history fetched successfully"
+      )
+    );
+});
+
 export {
   registerUser,
   loginUser,
@@ -413,6 +476,8 @@ export {
   updateAccountDetails,
   updateAvatar,
   updateCoverImage,
+  getUserChannelProfile,
+  getWatchHistory,
 };
 
 // lookup: document to stick (to join two docs)
