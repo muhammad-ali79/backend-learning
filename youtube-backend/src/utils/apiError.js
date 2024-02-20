@@ -8,7 +8,7 @@ class ApiError extends Error {
     errors = [],
 
     // In JavaScript, the stack property of an Error object contains information about the call stack, which is a representation of the sequence of function calls that led to the current point in code where the error occurred
-    stack,
+    stack
   ) {
     super(message);
     this.statusCode = statusCode;

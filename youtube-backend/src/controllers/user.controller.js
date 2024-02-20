@@ -48,17 +48,17 @@ const registerUser = asyncHandler(async (req, res) => {
   // extracting the data form the req
   const { userName, email, fullName, password } = req.body;
 
-  // VAIDATION: if any of the field is empy then throw new apiError
+  // VALIDATION: if any of the field is empy then throw new apiError
+  // if any of the field is empty string then return true
   if (
-    [userName, email, fullName, password].some((field) => {
-      console.log(userName, email, fullName, password);
-      field.trim() === "";
-    })
-  )
+    [userName, email, fullName, password].some((field) => field.trim() === "")
+  ) {
     throw new ApiError(400, "All fields are required");
+  }
 
   // if user is already exist
   // User schema wil serach in the database that if usreName or email already exit
+  // here User is a collection in the database or the model that i create
   const existedUser = await User.findOne({ $or: [{ userName }, { email }] });
   if (existedUser)
     throw new ApiError(409, "User with email and password already exist");
@@ -80,7 +80,7 @@ const registerUser = asyncHandler(async (req, res) => {
   // checking if the avatar is not upload successfully
   if (!avatar) throw new Error(400, "Avatar is required");
 
-  // saving the user object in the db
+  // creating and  saving the user object in the db
   const user = await User.create({
     fullName,
     email,
@@ -91,10 +91,9 @@ const registerUser = asyncHandler(async (req, res) => {
   });
 
   // check for user Creation
-  // checking if the user is sucessfully creaed in db and removing the password and refreshToken fields
-  const createdUser = await User.findById(user._id).select(
-    "-password -refreshToken"
-  );
+  // checking if the user is sucessfully creaed in db and removing the password and  fields for sending response to the user
+  // select all the fields expect password and refreshToken
+  const createdUser = await User.findById(user._id).select("-password");
   if (!createdUser)
     throw new ApiError(500, "someting went wrong while registering the user");
 
