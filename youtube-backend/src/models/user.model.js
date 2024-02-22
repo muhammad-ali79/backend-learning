@@ -64,6 +64,7 @@ userSchema.pre("save", async function (next) {
 
   // using next() will look like something when the next() is called then we are telling the mongoose to go to the next middleware or perfroms others operations
   if (!this.isModified("password")) return next();
+
   try {
     const hashedPassword = await bcrypt.hash(this.password, 10);
     this.password = hashedPassword;
@@ -75,6 +76,7 @@ userSchema.pre("save", async function (next) {
 
 // if user given password is same as password store in db then return true
 userSchema.methods.isPasswordCorrect = async function (password) {
+  // bycrypt will first decrypt password
   return await bcrypt.compare(password, this.password);
 };
 

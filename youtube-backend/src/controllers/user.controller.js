@@ -5,6 +5,7 @@ import uploadOnCloudinary from "../utils/cloudinary.js";
 import ApiResponse from "../utils/apiResponse.js";
 import jwt from "jsonwebtoken";
 
+// TODO:Convert this to asyncHandler
 const generateAccessAndRefreshToken = async (userId) => {
   try {
     const user = await User.findById(userId);
@@ -52,9 +53,8 @@ const registerUser = asyncHandler(async (req, res) => {
   // if any of the field is empty string then return true
   if (
     [userName, email, fullName, password].some((field) => field.trim() === "")
-  ) {
+  )
     throw new ApiError(400, "All fields are required");
-  }
 
   // if user is already exist
   // User schema wil serach in the database that if usreName or email already exit
@@ -118,9 +118,11 @@ const loginUser = asyncHandler(async (req, res) => {
   const { userName, email, password } = req.body;
 
   // 2.
+  // both
   if (!userName && !email)
     throw new ApiError(400, "usreName or password is required");
 
+  //single
   // if (!(userName || email))
   //   throw new ApiError(400, "userName or email is required");
 
