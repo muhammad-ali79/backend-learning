@@ -1,5 +1,7 @@
 // this funcion help in handling errors of async functions
 
+import mongoose, { mongo } from "mongoose";
+
 /*
  This function asyncHandler is a higher-order function that serves as middleware for handling asynchronous request handlers in an Express.js application. Its purpose is to simplify error handling for asynchronous route handlers that use promises or async/await syntax.
 
@@ -20,14 +22,13 @@ By using this asyncHandler middleware, developers can avoid repetitive try/catch
 
 // by using Promises
 const asyncHandler = (requestHandler) => {
+  // return a resolved promise with the req,res,next which is given as parameters in the requestHandler funcion. pass the error the expressjs error middleware if there is any error happen in the requestHandler thanks of .catch because requestHandler is returning as a promise
+
+  // no need to reslove the promise because request handler functions are already async funcions and async funcion return a promise
+  /* Promise.resolve(
+    requestHandler(req, res, next).catch((error) => next(error))
+  ); */
   return (req, res, next) =>
-    // return a resolved promise with the req,res,next which is given as parameters in the requestHandler funcion . pass the error the expressjs error middleware if there is any error happen in the requestHandler thanks of .catch because requestHandler is returning as a promise
-
-    // no need to reslove the promise because request handler functions are already async funcions and async funcion return a promise
-    /* Promise.resolve(
-      requestHandler(req, res, next).catch((error) => next(error))
-    ); */
-
     requestHandler(req, res, next).catch((error) => next(error));
 };
 

@@ -4,6 +4,8 @@ import { User } from "../models/user.model.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 import ApiResponse from "../utils/apiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
+import loggedInUser from "../utils/getLoggedinUser.js";
 
 // TODO:Convert this to asyncHandler
 const generateAccessAndRefreshToken = async (userId) => {
@@ -65,11 +67,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   // gettting the image path
   // multer already upload the file from the router in the local server so here we are just taking the filepath
-
-  // console.log("request.Files", req.files);
-  // console.log("complete", req.files.coverImage);
-
-  const avatarLocalPath = req.files?.avatar[0]?.path;
+  const avatarLocalPath = req.files?.avatar?.[0]?.path;
   const coverImageLocalPath = req.files?.coverImage?.[0]?.path;
 
   if (!avatarLocalPath) throw new ApiError(400, "Avatar is required");
@@ -174,14 +172,16 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
-  await User.findByIdAndUpdate(
-    req.user._id,
+  const requestedUser = loggedInUser(req);
+  const newUser = await User.findByIdAndUpdate(
+    requestedUser,
 
     // // data to update
-    // {
-    //   $set: { refreshToken: undefined },
-    // },
+    /*   {
+      $set: { refreshToken: undefined },
+    }, */
 
+    // this will remove the refreshToken field from the doc
     {
       $unset: {
         refreshToken: 1,
@@ -191,6 +191,8 @@ const logoutUser = asyncHandler(async (req, res) => {
     //  This option tells Mongoose to return the modified document rather than the original one.  So user will hold the updated document
     { new: true }
   );
+
+  // console.log(newUser);
 
   const options = {
     httpOnly: true,
@@ -205,6 +207,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
+  loggedInUser(req);
   const incomingRefreshToken =
     req.cookies.refreshToken || req.body.refreshToken;
   if (!incomingRefreshToken) throw new ApiError(401, "unauthorized request");
@@ -220,7 +223,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     if (!user) throw new ApiError(401, "Invalid refresh token");
 
     // comparing the refresh token from the db refreshToekn
-    if (!incomingRefreshToken !== user?.refreshToken)
+    if (incomingRefreshToken !== user?.refreshToken)
       throw new ApiError(401, "refreshToken expired");
 
     const options = {
@@ -228,7 +231,9 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       secure: true,
     };
 
-    const { accessToken, refreshToken } = await generateAccessAndRefreshToken();
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+      user._id
+    );
 
     res
       .status(200)
@@ -247,9 +252,10 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 });
 
 const changeCurrentPassword = asyncHandler(async (req, res) => {
+  const requestedUser = loggedInUser(req);
   const { oldPassword, newPassword } = req.body;
 
-  const user = await User.findById(req.user?._id); // req.user come from auth middleware because we will use the auth middleware
+  const user = await User.findById(requestedUser); // req.user come from auth middleware because we will use the auth middleware
   const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
 
   if (!isPasswordCorrect) throw new ApiError(401, "invalid old password");
@@ -264,18 +270,20 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
+  loggedInUser(req);
   return res
     .status(200)
     .json(new ApiResponse(200, req.user, "User fetched successfully"));
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
+  const requestedUser = loggedInUser(req);
   const { email, fullName } = req.body;
 
   if (!email || !fullName) throw new ApiError(400, "All fields are required");
 
   const user = await User.findByIdAndUpdate(
-    req.user?._id,
+    requestedUser,
     {
       $set: {
         fullName,
@@ -292,6 +300,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 });
 
 const updateAvatar = asyncHandler(async (req, res) => {
+  const requestedUser = loggedInUser(req);
   const avatarLocalPath = req.file?.path;
   if (!avatarLocalPath) throw new ApiError(400, "avatar file is missing");
 
@@ -299,7 +308,7 @@ const updateAvatar = asyncHandler(async (req, res) => {
   if (!avatar.url) throw new ApiError(400, "Error While uplading the file");
 
   const user = await User.findByIdAndUpdate(
-    req.user?._id,
+    requestedUser,
     {
       $set: {
         avatar: avatar.url,
@@ -314,6 +323,7 @@ const updateAvatar = asyncHandler(async (req, res) => {
 });
 
 const updateCoverImage = asyncHandler(async (req, res) => {
+  const requestedUser = loggedInUser(req);
   const coverImageLocalPath = req.file?.path;
   if (!coverImageLocalPath)
     throw new ApiError(400, "coverImage file is missing");
@@ -322,7 +332,7 @@ const updateCoverImage = asyncHandler(async (req, res) => {
   if (!coverImage.url) throw new ApiError(400, "Error While uplading the file");
 
   const user = await User.findByIdAndUpdate(
-    req.user?._id,
+    requestedUser,
     {
       $set: {
         coverImage: coverImage.url,
@@ -337,20 +347,18 @@ const updateCoverImage = asyncHandler(async (req, res) => {
 });
 
 const getUserChannelProfile = asyncHandler(async (req, res) => {
-  const { userName } = req.params; // from url
+  loggedInUser(req);
+  const { channelName } = req.params; // from url
 
-  if (!userName?.trim()) throw new ApiError(400, "userName is missing");
+  if (!channelName?.trim()) throw new ApiError(400, "userName is missing");
 
-  const channel = User.aggregate([
+  /*   const channel = await User.aggregate([
     {
       $match: {
-        // match will give one doc who will match the username
         userName: userName?.toLowerCase(),
       },
     },
 
-    // will make subcribers property of documents if localField match with foreignField on the document who come after matching
-    // this stage will get all the documents of the subcribers
     {
       $lookup: {
         from: "subscriptions",
@@ -364,11 +372,56 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       $lookup: {
         from: "subscriptions",
         localField: "_id",
+        foreignField: "channel",
+        as: "subcribeTo",
+      },
+    },
+
+    {
+      $addFields: {
+        subscribersCount: {
+          $size: ["$subcribers"],
+        },
+
+        subscriberToCount: {
+          $size: ["$subcriberT0"],
+        },
+
+        isSubscribed: {
+          $cond: {
+            if: {
+              $in: [req.user._id, ["subcribers.subcriber"]],
+            },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+  ]); */
+
+  const channel = await User.aggregate([
+    {
+      $match: {
+        userName: channelName?.toLowerCase(),
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subcribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
         foreignField: "subscriber",
         as: "subcribedTo",
       },
     },
-
     {
       $addFields: {
         subscribersCount: {
@@ -379,11 +432,11 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
           $size: "$subcribedTo",
         },
 
+        // will give the boolean whether where the requeste is coming from is the subscribed to me or not()
         isSubscribed: {
           $cond: {
-            // if id in subcribers.subcriber will match the id in req.user then return true
             if: {
-              $in: [req.user._id, "$subcribers.subcriber"],
+              $in: [req.user._id, "$subcribers.subscriber"],
             },
             then: true,
             else: false,
@@ -391,14 +444,13 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         },
       },
     },
-
-    // only these fields will remain in the document
     {
       $project: {
+        subcribers: 1,
         fullName: 1,
         userName: 1,
         subscribersCount: 1,
-        channelsSubscribedToCount: 1,
+        channelsSubcribedToCount: 1,
         isSubscribed: 1,
         avatar: 1,
         coverImage: 1,
@@ -406,6 +458,8 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       },
     },
   ]);
+
+  console.log(channel);
 
   if (!channel?.length) throw new ApiError(404, "channel does not exists");
 
@@ -417,11 +471,11 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 });
 
 const getWatchHistory = asyncHandler(async (req, res) => {
-  const user = User.aggregate([
+  const requestedUser = loggedInUser(req);
+  const user = await User.aggregate([
     {
       $match: {
-        // here we cannot just write req.user.id because aggregate doest not use mongoose its code go directly in to the mongodb and mongodb required ObjectId(_id) so that i generate using mongoose
-        _id: new mongoose.Type.ObjectId(req.user?._id),
+        _id: new mongoose.Types.ObjectId(requestedUser),
       },
     },
 
@@ -429,39 +483,38 @@ const getWatchHistory = asyncHandler(async (req, res) => {
       $lookup: {
         from: "videos",
         localField: "watchHistory",
-        foreignField: "_id", // video id
+        foreignField: "_id",
         as: "watchHistory",
-      },
-      pipeline: [
-        {
-          $lookup: {
-            from: "users",
-            localField: "owner",
-            foreignField: "_id",
-            as: "owner",
 
-            pipeline: [
-              {
-                $project: {
-                  userName: 1,
-                  fullName: 1,
-                  avatar: 1,
+        pipeline: [
+          {
+            $lookup: {
+              from: "user",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                  },
                 },
-              },
-            ],
-          },
-        },
-        {
-          $addFields: {
-            owner: {
-              $first: "$owner",
+              ],
             },
           },
-        },
-      ],
+          {
+            $addFields: {
+              owner: { $first: "$owner" },
+            },
+          },
+        ],
+      },
     },
   ]);
 
+  if (user?.length < 1) new ApiError(404, "no watch history found");
   res
     .status(200)
     .json(

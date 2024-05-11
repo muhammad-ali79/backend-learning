@@ -1,4 +1,5 @@
 import { Router } from "express";
+import validateId from "../middlewares/validateIds.middleware.js";
 import {
   changeCurrentPassword,
   getCurrentUser,
@@ -18,6 +19,7 @@ import verifyJWT from "../middlewares/auth.middleware.js";
 const router = Router();
 
 router.route("/register").post(
+  validateId,
   // enjecting multer middleware
   upload.fields([
     { name: "avatar", maxCount: 1 },
@@ -33,7 +35,7 @@ router.route("/login").post(loginUser);
 // secured route (mean user should be loggedin)
 router.route("/logout").post(verifyJWT, logoutUser);
 
-router.route("/refresh-token").post(refreshAccessToken);
+router.route("/refresh-token").post(verifyJWT, refreshAccessToken);
 
 router.route("/change-password").post(verifyJWT, changeCurrentPassword);
 
@@ -49,7 +51,7 @@ router
   .route("/update-coverImage")
   .patch(verifyJWT, upload.single("coverImage"), updateCoverImage);
 
-router.route("/channel/:userName").patch(verifyJWT, getUserChannelProfile);
+router.route("/channel/:channelName").patch(verifyJWT, getUserChannelProfile);
 
 router.route("/history").get(verifyJWT, getWatchHistory);
 

@@ -13,6 +13,7 @@ const connectDB = async () => {
     );
   } catch (error) {
     console.error("Error connecting to Mongodb", error);
+    // exit the current process. This will exit even if there are some asyn tasks in event Loop. in nodejs there are also someTimes
     process.exit(1);
   }
 };

@@ -1,7 +1,9 @@
 import mongoose, { Schema } from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 
+// schemas are tht bluePrint for the document stroing in the database
 const userSchema = new Schema(
   {
     userName: {
@@ -20,6 +22,7 @@ const userSchema = new Schema(
       lowercase: true,
       unique: true,
       trim: true,
+      index: true,
     },
 
     fullName: {
@@ -57,7 +60,7 @@ const userSchema = new Schema(
   },
   { timestamps: true }
 );
-
+userSchema.plugin(mongooseAggregatePaginate);
 // before saving data if password is modified then encrypt password
 userSchema.pre("save", async function (next) {
   // next() essentially acts as a way to pass control to the next function in the middleware chain or to continue with the operation being performed. If you don't call next(), the middleware chain will be halted, and the save operation (or any subsequent middleware) won't proceed.
@@ -76,7 +79,7 @@ userSchema.pre("save", async function (next) {
 
 // if user given password is same as password store in db then return true
 userSchema.methods.isPasswordCorrect = async function (password) {
-  // bycrypt will first decrypt password
+  // bycrypt will first decrypt password then compare it with the password that we give
   return await bcrypt.compare(password, this.password);
 };
 
@@ -108,4 +111,6 @@ userSchema.methods.generateRefreshToken = function () {
     }
   );
 };
+
+// model are used to intreact with Database. They proivde abstraction when intracting with db.
 export const User = mongoose.model("User", userSchema);

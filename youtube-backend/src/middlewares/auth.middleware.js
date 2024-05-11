@@ -11,12 +11,16 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
       // accessing the authorization field and just selecting the token from the value
       req.header("Authorization")?.replace("Bearer ", ""); //TODO:confrimatio on bearer
 
-    if (!token) throw new ApiError(401, "Unauthorized request");
+    if (!token)
+      throw new ApiError(401, "Unauthorized request. Please login to continue");
 
     const decodedToken = Jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    const user = User.findById(decodedToken?._id).select(
+    const user = await User.findById(decodedToken?._id).select(
       "-password -refreshToken"
     );
+
+    // console.log("user from the middleaware", user);
+
     if (!user) throw new ApiError(401, "Invalid Access Token");
 
     // adding the new property on the request
